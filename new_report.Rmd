@@ -1,0 +1,437 @@
+---
+title: "Impact of education level on mental health pre & post recesson"
+author: "Emmanual C. Anadi (eamadi45@gmail.com)"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: paper
+    number_sections: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gmodels)
+all_years <- read.csv("allyears.csv")
+```
+
+# Summary of findings
+
+For all four measures of mental health (GHQ36, GHQG2, SRH and EQ utility scores), overtime and on average, the employed class of respondents had a better level of mental health compared to the rest groups and the retired class had showed the worst level of mental health. Interestingly, post 2008, the mental health of the retired class showed an upward trend where the other groups showed a downward trend - using EQ utility score as an a measure of mental health.
+
+We used a Chi-squared test to assess the relationship between mental health (using SRH) and employment status pre and post 2008 recession and both tests confirmed that there was an statistically significant association between both variables before the recession and this continued to be the case in the years following the recession. It is worth nothing that we have not been able to verify one of the core assumptions of a Chi-squared test, which is in dependence of observations in the data. Even though a new sample is drawn for the HSE survey each year, we have not been able to verify that these respondents are unique for each year. Therefore is it worth assessing this relationship with another method.
+
+# Methodology
+
+# Limitations
+
+1.  Health Survey England draws a new sample of respondents every year (see [here](https://academic.oup.com/ije/article/41/6/1585/741862)), however from our review of the survey information, we cannot guarantee that all responds are unique through the years which is a key assumption for employing statistical tests such as Chi-Square and Fisher's exact test.
+2. Following from the point above, it is worth noting that there seem to be duplicated serial numbers (39,500). See appendix.
+
+
+# Objective 1
+
+In this section, we explore the trend of mental health between 2000-2019 between the different employment categories.
+
+## Using GHQ36 as a measure of mental health
+
+```{r, echo = F}
+all_years %>%
+  group_by(year, econact) %>%
+  summarise(mean = mean(GHQ36Scr)) %>%
+  #na.omit() %>%
+ggplot(aes(x = year, y = mean, color = econact)) +
+  geom_line() +
+  labs(x = "Year", y = "GHQ36 Score", title = "Average GHQ36 score by employment status between 2000 and 2019 (with NAs") +
+  theme_minimal()
+
+all_years %>%
+  group_by(year, econact) %>%
+  summarise(mean = mean(GHQ36Scr)) %>%
+  na.omit() %>%
+ggplot(aes(x = year, y = mean, color = econact)) +
+  geom_line() +
+  labs(x = "Year", y = "GHQ36 Score", title = "Average GHQ36 score by employment status between 2000 and 2019 (without NAs") +
+  theme_minimal()
+```
+
+## Using GHQG2 as a measure of mental health
+
+```{r, echo = F}
+all_years_GHQG2 <- all_years %>%
+  filter(!is.na(GHQg2))
+
+prop_all_years_GHQG2 <- all_years_GHQG2 %>%
+  group_by(year, econact, GHQg2) %>%
+  count()
+
+proportions <- prop_all_years_GHQG2 %>%
+  group_by(year, econact) %>%
+  mutate(total = sum(n)) %>%
+  mutate(proportion = n / total * 100) %>%
+  filter(GHQg2 %in% c("Case Mental Health", "No case"))
+
+# Create the stacked bar plot with facets
+ggplot(proportions, aes(x = year, y = proportion, fill = GHQg2)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Year", y = "Proportion", title = "Proportion of mental health cases by employment status (2000 - 2019") +
+  scale_fill_manual(values = c("Case Mental Health" = "red", "No case" = "blue")) +
+  facet_wrap(~econact) +
+  theme_minimal()
+```
+
+## Using EQ-3D scores
+
+Note: 9 years of out the 19 we are examining do not have EQ. These are
+
+```{r, echo=F}
+result <- all_years %>% filter(is.na(EQMEAN)) %>% distinct(year)
+cat(as.character(result$year), sep = ", ")
+```
+
+```{r, echo=F}
+all_years %>% 
+  group_by(year, econact) %>%
+  summarise(mean = mean(EQMEAN)) %>%
+  na.omit() %>%
+ggplot(aes(x = year, y = mean, color = econact)) +
+  geom_line() +
+  labs(x = "Year", y = "Average EQMEAN Score", title = "Average EQMEAN score by employment status between 2000 and 2019")  +
+  theme_minimal()
+
+```
+
+## Using SRH
+
+```{r, echo=F}
+all_years_SRH <- all_years %>%
+  filter(!is.na(Self_Rated_Health))
+
+prop_all_years_SRH <- all_years_SRH %>%
+  group_by(year, econact, Self_Rated_Health) %>%
+  count()
+
+proportions <- prop_all_years_SRH %>%
+  group_by(year, econact) %>%
+  mutate(total = sum(n)) %>%
+  mutate(proportion = n / total * 100) %>%
+  filter(Self_Rated_Health %in% c("Bad/very bad", "Fair", "Very good/good"))
+
+# Create the stacked bar plot with facets
+ggplot(proportions, aes(x = year, y = proportion, fill = Self_Rated_Health)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Year", y = "Proportion", title = "Proportion of mental health cases by employment status (2000 - 2019") +
+  scale_fill_manual(values = c("Bad/very bad" = "red", "Fair" = "orange",  "Very good/good" = "blue")) +
+  facet_wrap(~econact) +
+  theme_minimal()
+```
+
+
+# Objective 2
+To assess the relationship between employment status and mental health in different population groups (gender, weight and education) we make a selection of 3 cohorts. The 2000 cohort of respondents which is the earliest year we have data for, 2008 which is the year of significant event in our study i.e the recession and 2019 which is the latest year we have data for. It is worth noting that we do not have GHQ36 and GHQ2 data for 2019.
+
+## Cohort 2000
+### Using GHQ36 as a measure of mental health
+```{r, echo = F}
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, y = GHQ36Scr)) +
+  geom_boxplot() +
+  facet_wrap(~ Sex) +
+  xlab("Employment Status") +
+  ylab("GHQ36") +
+  ggtitle("Box Plot of GHQ36 by employment status and gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, y = GHQ36Scr)) +
+  geom_boxplot() +
+  facet_wrap(~ Highest_Edu_Attain) +
+  xlab("Employment Status") +
+  ylab("GHQ36") +
+  ggtitle("Box Plot of GHQ36 by employment status and education") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, y = GHQ36Scr)) +
+  geom_boxplot() +
+  facet_wrap(~ Age) +
+  xlab("Employment Status") +
+  ylab("GHQ36") +
+  ggtitle("Box Plot of GHQ36 by employment status and age") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+### Using GHQG2 as a measure of mental health
+```{r, echo = F}
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, fill = GHQg2)) +
+  geom_bar() +
+  facet_wrap(~ Sex) +
+  xlab("Employment Status") +
+  ylab("GHQG2") +
+  ggtitle("Stacked barplot of GHQG2 by employment status and gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, fill = GHQg2)) +
+  geom_bar() +
+  facet_wrap(~ Highest_Edu_Attain) +
+  xlab("Employment Status") +
+  ylab("GHQG2") +
+  ggtitle("Stacked barplot of GHQG2 by employment status and education") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, fill = GHQg2)) +
+  geom_bar() +
+  facet_wrap(~ Age) +
+  xlab("Employment Status") +
+  ylab("GHQG2") +
+  ggtitle("Stacked barplot of GHQG2 by employment status and age") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+### Using SRH as a measure of mental health
+```{r, echo = F}
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Sex) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Highest_Edu_Attain) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and education") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+all_years %>% 
+  filter(year == 2000) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Age) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and age") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Cohort 2008
+### Using GHQ36 as a measure of mental health
+```{r, echo = F}
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, y = GHQ36Scr)) +
+  geom_boxplot() +
+  facet_wrap(~ Sex) +
+  xlab("Employment Status") +
+  ylab("GHQ36") +
+  ggtitle("Box Plot of GHQ36 by employment status and gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, y = GHQ36Scr)) +
+  geom_boxplot() +
+  facet_wrap(~ Highest_Edu_Attain) +
+  xlab("Employment Status") +
+  ylab("GHQ36") +
+  ggtitle("Box Plot of GHQ36 by employment status and education") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, y = GHQ36Scr)) +
+  geom_boxplot() +
+  facet_wrap(~ Age) +
+  xlab("Employment Status") +
+  ylab("GHQ36") +
+  ggtitle("Box Plot of GHQ36 by employment status and age") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+### Using GHQG2 as a measure of mental health
+```{r, echo = F}
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, fill = GHQg2)) +
+  geom_bar() +
+  facet_wrap(~ Sex) +
+  xlab("Employment Status") +
+  ylab("GHQG2") +
+  ggtitle("Stacked barplot of GHQG2 by employment status and gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, fill = GHQg2)) +
+  geom_bar() +
+  facet_wrap(~ Highest_Edu_Attain) +
+  xlab("Employment Status") +
+  ylab("GHQG2") +
+  ggtitle("Stacked barplot of GHQG2 by employment status and education") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, fill = GHQg2)) +
+  geom_bar() +
+  facet_wrap(~ Age) +
+  xlab("Employment Status") +
+  ylab("GHQG2") +
+  ggtitle("Stacked barplot of GHQG2 by employment status and age") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+### Using SRH as a measure of mental health
+```{r, echo = F}
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Sex) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Highest_Edu_Attain) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and education") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+all_years %>% 
+  filter(year == 2008) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Age) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and age") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Cohort 2019
+### Using SRH as a measure of mental health
+```{r, echo = F}
+all_years %>% 
+  filter(year == 2019) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Sex) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+all_years %>% 
+  filter(year == 2019) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Highest_Edu_Attain) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and education") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+all_years %>% 
+  filter(year == 2019) %>%
+  ggplot(aes(x = Employment_Status, fill = Self_Rated_Health)) +
+  geom_bar() +
+  facet_wrap(~ Age) +
+  xlab("Employment Status") +
+  ylab("Self Rated Health") +
+  ggtitle("Stacked barplot of self rated health by employment status and age") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Objective 3
+
+Our aim in this section is to test the relationship between employment status and mental health before and after the 2008 recession. We use SRH as our measure of mental health, given that it is the only measure that has no missing value for all observations from 2000-2019. We have employed Chi-squared test of independence to assess this relationship separately for years preceding 2008 and post-2008. A better technique would be to do a log linear analysis which is the planned next step for this work.
+
+## Hypothesis 1 (Pre-recession)
+H0: Employment status is independent of mental health pre-recession
+H1: There is an association between employment status and mental health pre-recession
+
+``` {r, echo = F}
+all_years_model <- all_years %>%
+  filter(year != 2008) %>%
+  mutate(post_2008 = ifelse(year > 2007, 1, 0))
+
+
+pre_2008 <- all_years_model %>%
+  filter(post_2008 == 0)
+
+post_2008 <- all_years_model %>%
+  filter(post_2008 == 1)
+```
+
+``` {r, echo = F}
+CrossTable(pre_2008$econact, pre_2008$Self_Rated_Health, fisher = F, chisq = T, expected = T, prop.c = F, prop.t = F, prop.chisq = F, sresid = T, format = "SPSS")
+```
+### Interpretation
+There is a statistically significant association between employment status and mental health measured by SRH for the years preceding the 2008 recession. The test statistic (X2) is 8641.33 with a degree of freedom of 6 and significant at a p-value < 0.05. The minimum expected frequency is 82.83 (greater than 5) which verifies one of the core assumptions of a chi-squared test.
+
+
+## Hypothesis 2 (Post-recession)
+H0: Employment status is independent of mental health post-recession
+H1: There is an association between employment status and mental health post-recession
+
+``` {r, echo = F}
+CrossTable(post_2008$econact, post_2008$Self_Rated_Health, fisher = F, chisq = T, expected = T, prop.c = F, prop.t = F, prop.chisq = F, sresid = T, format = "SPSS")
+```
+
+### Interpretation
+There is a statistically significant association between employment status and mental health measured by SRH for the years after the 2008 recession. The test statistic (X2) is 8493.52 with a degree of freedom of 6 and significant at a p-value < 0.05. The minimum expected frequency is 72.60 (greater than 5) which verifies one of the core assumptions of a chi-squared test.
+
+# Appendix
+
+1. Data completeness
+
+See below for the number of missing observations we have for each variable.
+
+```{r, echo = F}
+print(colSums(is.na(all_years)))
+```
+
+2. Duplicate serial numbers
+See below for the number of duplicate individual serial numbers
+```{r, echo = F}
+print(sum(duplicated(all_years$pserial)))
+```
